@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Trophy, Star, Gift, Zap, Crown, Target } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 
 const Rewards = () => {
   const { toast } = useToast();
+  const [totalPoints, setTotalPoints] = useState(2450);
+  const [redeemedRewards, setRedeemedRewards] = useState<number[]>([]);
 
   const badges = [
     { icon: Trophy, title: "Wellness Warrior", description: "Complete 50 challenges", earned: true, rarity: "Gold" },
@@ -22,7 +25,27 @@ const Rewards = () => {
     { id: 3, title: "AI Companion Upgrade", cost: 1000, description: "Enhanced conversation features" },
   ];
 
-  const handleRedeem = (title: string, cost: number) => {
+  const handleRedeem = (id: number, title: string, cost: number) => {
+    if (totalPoints < cost) {
+      toast({
+        title: "Not Enough Points! 😕",
+        description: `You need ${cost - totalPoints} more points to redeem this reward.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (redeemedRewards.includes(id)) {
+      toast({
+        title: "Already Redeemed! ✓",
+        description: "You've already unlocked this reward.",
+      });
+      return;
+    }
+
+    setTotalPoints(totalPoints - cost);
+    setRedeemedRewards([...redeemedRewards, id]);
+    
     toast({
       title: "Reward Redeemed! 🎁",
       description: `You've unlocked: ${title} (-${cost} points)`,
@@ -44,8 +67,8 @@ const Rewards = () => {
         <Card className="p-6 mb-8 shadow-md bg-gradient-to-r from-primary to-secondary text-primary-foreground">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm opacity-90 mb-1">Total Points Earned</p>
-              <p className="text-5xl font-bold">2,450</p>
+              <p className="text-sm opacity-90 mb-1">Available Points</p>
+              <p className="text-5xl font-bold">{totalPoints.toLocaleString()}</p>
             </div>
             <div className="text-right">
               <p className="text-sm opacity-90 mb-1">Current Streak</p>
@@ -105,25 +128,58 @@ const Rewards = () => {
             Redeemable Rewards
           </h2>
           <div className="space-y-4">
-            {rewards.map((reward) => (
-              <Card key={reward.id} className="p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{reward.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3">{reward.description}</p>
-                    <Badge variant="secondary" className="bg-primary text-primary-foreground">
-                      {reward.cost} points
-                    </Badge>
+            {rewards.map((reward) => {
+              const isRedeemed = redeemedRewards.includes(reward.id);
+              const canAfford = totalPoints >= reward.cost;
+              
+              return (
+                <Card
+                  key={reward.id}
+                  className={`p-6 shadow-sm transition-all ${
+                    isRedeemed
+                      ? "bg-success-light border-2 border-accent"
+                      : "hover:shadow-md"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-semibold text-foreground">{reward.title}</h3>
+                        {isRedeemed && (
+                          <Badge variant="default" className="bg-accent text-accent-foreground">
+                            Redeemed ✓
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-3">{reward.description}</p>
+                      <Badge
+                        variant="secondary"
+                        className={`${
+                          canAfford && !isRedeemed
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {reward.cost} points
+                      </Badge>
+                    </div>
+                    <Button
+                      onClick={() => handleRedeem(reward.id, reward.title, reward.cost)}
+                      disabled={isRedeemed}
+                      className={`${
+                        isRedeemed
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : canAfford
+                          ? "bg-primary hover:bg-primary/90"
+                          : "bg-muted text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {isRedeemed ? "Redeemed" : "Redeem"}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={() => handleRedeem(reward.title, reward.cost)}
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    Redeem
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </div>
       </div>
