@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { Sparkles, Send } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Sparkles, Send, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 
 interface Message {
@@ -14,18 +16,75 @@ interface Message {
 }
 
 const Companion = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const startConversation = () => {
+    setConversationStarted(true);
+    const welcomeMessage: Message = {
       id: 1,
       text: "Great job staying on track! You're building amazing habits. Remember, every small step counts toward your wellness journey. Ready to tackle your next challenge?",
       sender: "ai",
       timestamp: new Date(),
-    },
-  ]);
-  const [inputValue, setInputValue] = useState("");
+    };
+    setMessages([welcomeMessage]);
+  };
+
+  const sendMessageToAI = async (userMessage: Message) => {
+    setIsLoading(true);
+    
+    try {
+      const conversationHistory = [...messages, userMessage].map(msg => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text
+      }));
+
+      const { data, error } = await supabase.functions.invoke("wellness-coach", {
+        body: { messages: conversationHistory },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      const aiResponse = data.choices[0].message.content;
+      
+      const aiMessage: Message = {
+        id: messages.length + 2,
+        text: aiResponse,
+        sender: "ai",
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Error calling AI:", error);
+      toast({
+        title: "Connection Error",
+        description: "I'm having trouble responding right now. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSend = () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: messages.length + 1,
@@ -34,27 +93,9 @@ const Companion = () => {
       timestamp: new Date(),
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponses = [
-        "That's a great question! Remember to focus on one habit at a time for the best results.",
-        "I'm proud of your progress! Keep up the momentum and you'll reach your goals in no time.",
-        "Taking breaks is just as important as staying active. How about trying a mindful moment?",
-        "Your dedication is inspiring! Would you like some tips on maintaining your streak?",
-      ];
-
-      const aiMessage: Message = {
-        id: messages.length + 2,
-        text: aiResponses[Math.floor(Math.random() * aiResponses.length)],
-        sender: "ai",
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-    }, 1000);
+    sendMessageToAI(userMessage);
   };
 
   return (
@@ -71,69 +112,107 @@ const Companion = () => {
         </div>
 
         {/* Daily Check-in Card */}
-        <Card className="p-6 mb-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950 border-primary/20 shadow-md">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-full bg-primary">
-              <Sparkles className="h-6 w-6 text-primary-foreground" />
+        {!conversationStarted && (
+          <Card className="p-6 mb-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950 border-primary/20 shadow-md">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-full bg-primary">
+                <Sparkles className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Your Daily Check-in
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Great job staying on track! You're building amazing habits.
+                  Remember, every small step counts toward your wellness journey.
+                  Ready to tackle your next challenge?
+                </p>
+                <Button 
+                  onClick={startConversation}
+                  className="bg-secondary hover:bg-secondary/90"
+                >
+                  Start Conversation
+                </Button>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Your Daily Check-in
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Great job staying on track! You're building amazing habits.
-                Remember, every small step counts toward your wellness journey.
-                Ready to tackle your next challenge?
-              </p>
-              <Button className="bg-secondary hover:bg-secondary/90">
-                Start Conversation
-              </Button>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         {/* Chat Messages */}
-        <Card className="flex-1 p-6 mb-4 overflow-y-auto shadow-sm">
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${
-                  message.sender === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                {message.sender === "ai" && (
-                  <Avatar className="h-10 w-10 bg-primary flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-primary-foreground" />
-                  </Avatar>
-                )}
-                <div
-                  className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                    message.sender === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
-                >
-                  <p className="text-sm">{message.text}</p>
+        {conversationStarted && (
+          <Card className="flex-1 p-6 mb-4 overflow-y-auto shadow-sm">
+            <div className="space-y-4">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                  <Sparkles className="h-12 w-12 mb-4 text-primary" />
+                  <p>Your wellness coach is ready to chat!</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ) : (
+                <>
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex gap-3 ${
+                        message.sender === "user" ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      {message.sender === "ai" && (
+                        <Avatar className="h-10 w-10 bg-primary flex items-center justify-center">
+                          <Sparkles className="h-5 w-5 text-primary-foreground" />
+                        </Avatar>
+                      )}
+                      <div
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                          message.sender === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        }`}
+                      >
+                        <p className="text-sm">{message.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {isLoading && (
+                    <div className="flex gap-3 justify-start">
+                      <Avatar className="h-10 w-10 bg-primary flex items-center justify-center">
+                        <Sparkles className="h-5 w-5 text-primary-foreground" />
+                      </Avatar>
+                      <div className="bg-muted rounded-2xl px-4 py-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Input Area */}
-        <div className="flex gap-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Type your message..."
-            className="flex-1"
-          />
-          <Button onClick={handleSend} className="bg-primary hover:bg-primary/90">
-            <Send className="h-5 w-5" />
-          </Button>
-        </div>
+        {conversationStarted && (
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSend()}
+              placeholder="Type your message..."
+              className="flex-1"
+              disabled={isLoading}
+            />
+            <Button 
+              onClick={handleSend} 
+              className="bg-primary hover:bg-primary/90"
+              disabled={isLoading || !inputValue.trim()}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       <Navigation />
