@@ -1,15 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Trophy, Star, Gift, Zap, Crown, Target } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Navigation from "@/components/Navigation";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useUserProgress } from "@/hooks/useUserProgress";
 
 const Rewards = () => {
   const { toast } = useToast();
-  const [totalPoints, setTotalPoints] = useState(2450);
+  const navigate = useNavigate();
+  const { progress, loading, deductPoints } = useUserProgress();
   const [redeemedRewards, setRedeemedRewards] = useState<number[]>([]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate("/auth");
+      } else {
+        fetchRedeemedRewards(user.id);
+      }
+    };
+    checkAuth();
+  }, [navigate]);
+
+  const fetchRedeemedRewards = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("redeemed_rewards")
+        .select("reward_id")
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      setRedeemedRewards(data.map(r => r.reward_id));
+    } catch (error: any) {
+      console.error("Error fetching redeemed rewards:", error);
+    }
+  };
 
   const badges = [
     { icon: Trophy, title: "Wellness Warrior", description: "Complete 50 challenges", earned: true, rarity: "Gold" },
@@ -25,11 +55,13 @@ const Rewards = () => {
     { id: 3, title: "AI Companion Upgrade", cost: 1000, description: "Enhanced conversation features" },
   ];
 
-  const handleRedeem = (id: number, title: string, cost: number) => {
-    if (totalPoints < cost) {
+  const handleRedeem = async (id: number, title: string, cost: number) => {
+    if (!progress) return;
+
+    if (progress.total_points < cost) {
       toast({
-        title: "Not Enough Points! 😕",
-        description: `You need ${cost - totalPoints} more points to redeem this reward.`,
+        title: "Not Enough Points!",
+        description: `You need ${cost - progress.total_points} more points to redeem this reward.`,
         variant: "destructive",
       });
       return;
@@ -37,20 +69,42 @@ const Rewards = () => {
 
     if (redeemedRewards.includes(id)) {
       toast({
-        title: "Already Redeemed! ✓",
+        title: "Already Redeemed!",
         description: "You've already unlocked this reward.",
       });
       return;
     }
 
-    setTotalPoints(totalPoints - cost);
-    setRedeemedRewards([...redeemedRewards, id]);
-    
-    toast({
-      title: "Reward Redeemed! 🎁",
-      description: `You've unlocked: ${title} (-${cost} points)`,
-    });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from("redeemed_rewards").insert({
+        user_id: user.id,
+        reward_id: id,
+        reward_title: title,
+        reward_cost: cost,
+      });
+
+      await deductPoints(cost);
+      setRedeemedRewards([...redeemedRewards, id]);
+      
+      toast({
+        title: "Reward Redeemed! 🎁",
+        description: `You've unlocked: ${title} (-${cost} points)`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading || !progress) {
+    return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background pb-28">
@@ -68,12 +122,12 @@ const Rewards = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm opacity-90 mb-1">Available Points</p>
-              <p className="text-5xl font-bold">{totalPoints.toLocaleString()}</p>
+              <p className="text-5xl font-bold">{progress.total_points.toLocaleString()}</p>
             </div>
             <div className="text-right">
               <p className="text-sm opacity-90 mb-1">Current Streak</p>
               <p className="text-3xl font-bold flex items-center gap-2">
-                7 🔥
+                {progress.current_streak} 🔥
               </p>
             </div>
           </div>
@@ -130,7 +184,7 @@ const Rewards = () => {
           <div className="space-y-4">
             {rewards.map((reward) => {
               const isRedeemed = redeemedRewards.includes(reward.id);
-              const canAfford = totalPoints >= reward.cost;
+              const canAfford = progress.total_points >= reward.cost;
               
               return (
                 <Card

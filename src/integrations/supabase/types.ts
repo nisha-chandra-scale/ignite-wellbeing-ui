@@ -14,7 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      completed_challenges: {
+        Row: {
+          challenge_id: number
+          completed_at: string
+          id: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          challenge_id: number
+          completed_at?: string
+          id?: string
+          user_id: string
+          xp_earned: number
+        }
+        Update: {
+          challenge_id?: number
+          completed_at?: string
+          id?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
+      redeemed_rewards: {
+        Row: {
+          id: string
+          redeemed_at: string
+          reward_cost: number
+          reward_id: number
+          reward_title: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          redeemed_at?: string
+          reward_cost: number
+          reward_id: number
+          reward_title: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          redeemed_at?: string
+          reward_cost?: number
+          reward_id?: number
+          reward_title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_progress: {
+        Row: {
+          achievements_count: number
+          created_at: string
+          current_streak: number
+          id: string
+          last_activity_date: string | null
+          total_points: number
+          total_xp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achievements_count?: number
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_activity_date?: string | null
+          total_points?: number
+          total_xp?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achievements_count?: number
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_activity_date?: string | null
+          total_points?: number
+          total_xp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
