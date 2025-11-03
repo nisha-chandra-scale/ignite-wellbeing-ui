@@ -31,15 +31,15 @@ export const useUserProgress = () => {
       }
 
       if (!data) {
-        // Create initial progress
+        // Create initial progress - start at 0
         const { data: newProgress, error: insertError } = await supabase
           .from("user_progress")
           .insert({
             user_id: user.id,
-            total_points: 2450,
-            current_streak: 7,
-            total_xp: 750,
-            achievements_count: 3,
+            total_points: 0,
+            current_streak: 0,
+            total_xp: 0,
+            achievements_count: 0,
             last_activity_date: new Date().toISOString().split('T')[0],
           })
           .select()

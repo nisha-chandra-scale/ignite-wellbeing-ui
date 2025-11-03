@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      badges: {
+        Row: {
+          created_at: string
+          description: string
+          icon_name: string
+          id: number
+          rarity: string
+          requirement_type: string
+          requirement_value: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          icon_name: string
+          id?: number
+          rarity: string
+          requirement_type: string
+          requirement_value: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon_name?: string
+          id?: number
+          rarity?: string
+          requirement_type?: string
+          requirement_value?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      challenges: {
+        Row: {
+          created_at: string
+          description: string
+          duration: string
+          icon_name: string
+          id: number
+          is_active: boolean | null
+          title: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          duration: string
+          icon_name: string
+          id?: number
+          is_active?: boolean | null
+          title: string
+          xp: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          duration?: string
+          icon_name?: string
+          id?: number
+          is_active?: boolean | null
+          title?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       completed_challenges: {
         Row: {
           challenge_id: number
@@ -64,6 +130,68 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      rewards_catalog: {
+        Row: {
+          cost: number
+          created_at: string
+          description: string
+          id: number
+          is_active: boolean | null
+          reward_data: Json | null
+          reward_type: string
+          title: string
+        }
+        Insert: {
+          cost: number
+          created_at?: string
+          description: string
+          id?: number
+          is_active?: boolean | null
+          reward_data?: Json | null
+          reward_type: string
+          title: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          description?: string
+          id?: number
+          is_active?: boolean | null
+          reward_data?: Json | null
+          reward_type?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_id: number
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: number
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: number
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_progress: {
         Row: {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trophy, Star, Gift, Zap, Crown, Target } from "lucide-react";
+import { Trophy, Star, Gift, Zap, Crown, Target, LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,40 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProgress } from "@/hooks/useUserProgress";
 
+interface BadgeType {
+  id: number;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  earned: boolean;
+  rarity: string;
+}
+
+interface RewardType {
+  id: number;
+  title: string;
+  cost: number;
+  description: string;
+  reward_type: string;
+  reward_data: any;
+}
+
+const iconMap: Record<string, LucideIcon> = {
+  Trophy,
+  Star,
+  Zap,
+  Crown,
+  Target,
+};
+
 const Rewards = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { progress, loading, deductPoints } = useUserProgress();
   const [redeemedRewards, setRedeemedRewards] = useState<number[]>([]);
+  const [badges, setBadges] = useState<BadgeType[]>([]);
+  const [rewards, setRewards] = useState<RewardType[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -21,7 +50,11 @@ const Rewards = () => {
       if (!user) {
         navigate("/auth");
       } else {
-        fetchRedeemedRewards(user.id);
+        await Promise.all([
+          fetchRedeemedRewards(user.id),
+          loadBadges(user.id),
+          loadRewards(),
+        ]);
       }
     };
     checkAuth();
@@ -41,21 +74,56 @@ const Rewards = () => {
     }
   };
 
-  const badges = [
-    { icon: Trophy, title: "Wellness Warrior", description: "Complete 50 challenges", earned: true, rarity: "Gold" },
-    { icon: Zap, title: "Quick Starter", description: "Complete 10 morning challenges", earned: true, rarity: "Silver" },
-    { icon: Star, title: "Consistency King", description: "30-day streak achieved", earned: true, rarity: "Gold" },
-    { icon: Crown, title: "Level Master", description: "Reach Level 10", earned: false, rarity: "Platinum" },
-    { icon: Target, title: "Perfect Week", description: "Complete all daily challenges for a week", earned: false, rarity: "Gold" },
-  ];
+  const loadBadges = async (userId: string) => {
+    try {
+      const { data: allBadges, error: badgesError } = await supabase
+        .from("badges")
+        .select("*");
 
-  const rewards = [
-    { id: 1, title: "Custom Theme", cost: 500, description: "Unlock a premium app theme" },
-    { id: 2, title: "Bonus Challenge Pack", cost: 750, description: "Get 5 exclusive challenges" },
-    { id: 3, title: "AI Companion Upgrade", cost: 1000, description: "Enhanced conversation features" },
-  ];
+      if (badgesError) throw badgesError;
 
-  const handleRedeem = async (id: number, title: string, cost: number) => {
+      const { data: earnedBadges, error: earnedError } = await supabase
+        .from("user_badges")
+        .select("badge_id")
+        .eq("user_id", userId);
+
+      if (earnedError) throw earnedError;
+
+      const earnedIds = new Set(earnedBadges?.map(b => b.badge_id) || []);
+
+      const formattedBadges: BadgeType[] = (allBadges || []).map((badge) => ({
+        id: badge.id,
+        icon: iconMap[badge.icon_name] || Trophy,
+        title: badge.title,
+        description: badge.description,
+        earned: earnedIds.has(badge.id),
+        rarity: badge.rarity,
+      }));
+
+      setBadges(formattedBadges);
+    } catch (error: any) {
+      console.error("Error loading badges:", error);
+    }
+  };
+
+  const loadRewards = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rewards_catalog")
+        .select("*")
+        .eq("is_active", true);
+
+      if (error) throw error;
+
+      setRewards(data || []);
+    } catch (error: any) {
+      console.error("Error loading rewards:", error);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleRedeem = async (id: number, title: string, cost: number, rewardType: string) => {
     if (!progress) return;
 
     if (progress.total_points < cost) {
@@ -89,9 +157,25 @@ const Rewards = () => {
       await deductPoints(cost);
       setRedeemedRewards([...redeemedRewards, id]);
       
+      // Show what they actually got
+      let rewardDescription = "";
+      switch (rewardType) {
+        case "theme":
+          rewardDescription = "Your custom theme has been unlocked! It will be applied automatically.";
+          break;
+        case "challenges":
+          rewardDescription = "5 exclusive challenges have been added to your dashboard!";
+          break;
+        case "ai_upgrade":
+          rewardDescription = "AI Companion upgraded! Now with enhanced features and longer conversations.";
+          break;
+        default:
+          rewardDescription = `You've unlocked: ${title}`;
+      }
+      
       toast({
         title: "Reward Redeemed! 🎁",
-        description: `You've unlocked: ${title} (-${cost} points)`,
+        description: rewardDescription,
       });
     } catch (error: any) {
       toast({
@@ -102,7 +186,7 @@ const Rewards = () => {
     }
   };
 
-  if (loading || !progress) {
+  if (loading || !progress || loadingData) {
     return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
   }
 
@@ -218,7 +302,7 @@ const Rewards = () => {
                       </Badge>
                     </div>
                     <Button
-                      onClick={() => handleRedeem(reward.id, reward.title, reward.cost)}
+                      onClick={() => handleRedeem(reward.id, reward.title, reward.cost, reward.reward_type)}
                       disabled={isRedeemed}
                       className={`${
                         isRedeemed
