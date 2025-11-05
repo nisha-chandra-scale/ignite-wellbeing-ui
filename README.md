@@ -62,7 +62,34 @@ This project is built with:
 
 ## How can I deploy this project?
 
+### Option 1: Lovable Platform (Easiest)
+
 Simply open [Lovable](https://lovable.dev/projects/59462dcd-ab3b-497e-af69-118a0a689fc1) and click on Share -> Publish.
+
+### Option 2: Docker Deployment (Recommended for Production)
+
+This application is containerized and ready to deploy using Docker. See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for comprehensive deployment instructions.
+
+**Quick Start:**
+```bash
+# 1. Create .env file with your Supabase credentials
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key_here
+
+# 2. Build and run with Docker Compose
+docker-compose up -d
+
+# Application will be available at http://localhost
+```
+
+**Why Docker?**
+- ✅ Consistent environment across all platforms
+- ✅ Easy to deploy anywhere (VPS, cloud, Kubernetes)
+- ✅ Isolated from your system
+- ✅ Simple scaling and version management
+- ✅ Production-ready with nginx
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions, deployment options, and production considerations.
 
 ## Can I connect a custom domain to my Lovable project?
 
