@@ -304,9 +304,10 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <StatCard icon={Flame} value={`${progress.current_streak} days`} label="Daily Streak" iconColor="text-orange-500" />
           <StatCard icon={Sparkles} value={todayXp.toString()} label="Today's XP" iconColor="text-accent" />
+          <StatCard icon={Trophy} value={earnedBadges.length.toString()} label="Achievements" iconColor="text-amber-500" />
         </div>
 
         {/* Progress Section */}
@@ -331,22 +332,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Achievements */}
-        <Card className="p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
-            Recent Achievements
-          </h2>
-          {earnedBadges.length > 0 ? (
-            <div className="flex flex-wrap gap-3">
-              {earnedBadges.map((badge) => (
-                <AchievementBadge key={badge.id} icon={badge.icon} title={badge.title} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Complete challenges to earn badges!</p>
-          )}
-        </Card>
       </div>
 
       <Navigation />
