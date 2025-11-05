@@ -8,6 +8,7 @@ import Navigation from "@/components/Navigation";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserProgress } from "@/hooks/useUserProgress";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface BadgeType {
   id: number;
@@ -38,6 +39,7 @@ const iconMap: Record<string, LucideIcon> = {
 const Rewards = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const { progress, loading, deductPoints } = useUserProgress();
   const [redeemedRewards, setRedeemedRewards] = useState<number[]>([]);
   const [badges, setBadges] = useState<BadgeType[]>([]);
@@ -170,7 +172,10 @@ const Rewards = () => {
       let rewardDescription = "";
       switch (rewardType) {
         case "custom_theme":
-          rewardDescription = "Custom Theme unlocked! Your app now has a personalized look.";
+          // Toggle between light and dark mode
+          const newTheme = theme === "dark" ? "light" : "dark";
+          setTheme(newTheme);
+          rewardDescription = `Theme switched to ${newTheme} mode! You can toggle anytime by redeeming again.`;
           break;
         case "bonus_challenges":
           rewardDescription = "Bonus challenges unlocked! Check your dashboard for new opportunities.";
@@ -315,16 +320,16 @@ const Rewards = () => {
                     </div>
                     <Button
                       onClick={() => handleRedeem(reward.id, reward.title, reward.cost, reward.reward_type)}
-                      disabled={isRedeemed}
+                      disabled={reward.reward_type !== 'custom_theme' && isRedeemed}
                       className={`${
-                        isRedeemed
+                        isRedeemed && reward.reward_type !== 'custom_theme'
                           ? "bg-muted text-muted-foreground cursor-not-allowed"
                           : canAfford
                           ? "bg-primary hover:bg-primary/90"
                           : "bg-muted text-muted-foreground hover:bg-muted"
                       }`}
                     >
-                      {isRedeemed ? "Redeemed" : "Redeem"}
+                      {reward.reward_type === 'custom_theme' ? 'Toggle Theme' : isRedeemed ? "Redeemed" : "Redeem"}
                     </Button>
                   </div>
                 </Card>
