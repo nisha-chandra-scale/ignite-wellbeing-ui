@@ -128,7 +128,6 @@ export const useUserProgress = () => {
     await updateProgress({
       total_xp: newTotalXP,
       current_streak: newStreak,
-      achievements_count: leveledUp ? progress.achievements_count + 1 : progress.achievements_count,
     });
     
     return leveledUp;
