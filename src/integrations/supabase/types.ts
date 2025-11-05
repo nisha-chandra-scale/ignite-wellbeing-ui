@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_rewards: {
+        Row: {
+          activated_at: string
+          id: string
+          reward_data: Json | null
+          reward_type: string
+          user_id: string
+        }
+        Insert: {
+          activated_at?: string
+          id?: string
+          reward_data?: Json | null
+          reward_type: string
+          user_id: string
+        }
+        Update: {
+          activated_at?: string
+          id?: string
+          reward_data?: Json | null
+          reward_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           created_at: string
@@ -77,6 +101,30 @@ export type Database = {
           is_active?: boolean | null
           title?: string
           xp?: number
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sender: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sender: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sender?: string
+          user_id?: string
         }
         Relationships: []
       }

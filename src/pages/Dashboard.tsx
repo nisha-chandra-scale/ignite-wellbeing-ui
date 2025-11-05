@@ -47,6 +47,8 @@ const Dashboard = () => {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [earnedBadges, setEarnedBadges] = useState<Badge[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [activeRewards, setActiveRewards] = useState<any[]>([]);
+  const [xpMultiplier, setXpMultiplier] = useState(1);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -54,12 +56,37 @@ const Dashboard = () => {
       if (!user) {
         navigate("/auth");
       } else {
-        await loadChallenges(user.id);
-        await loadEarnedBadges(user.id);
+        await Promise.all([
+          loadChallenges(user.id),
+          loadEarnedBadges(user.id),
+          loadActiveRewards(user.id),
+        ]);
       }
     };
     checkAuth();
   }, [navigate]);
+
+  const loadActiveRewards = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("active_rewards")
+        .select("*")
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      if (data) {
+        setActiveRewards(data);
+        // Check for XP boost
+        const xpBoost = data.find(r => r.reward_type === 'xp_boost');
+        if (xpBoost) {
+          setXpMultiplier(2);
+        }
+      }
+    } catch (error: any) {
+      console.error("Error loading active rewards:", error);
+    }
+  };
 
   const loadChallenges = async (userId: string) => {
     try {
@@ -145,12 +172,15 @@ const Dashboard = () => {
     ));
     
     if (challenge) {
-      setTodayXp(prev => prev + challenge.xp);
+      const xpEarned = challenge.xp * xpMultiplier;
+      const pointsEarned = xpEarned * 10;
       
-      const leveledUp = await addXP(challenge.xp);
+      setTodayXp(prev => prev + xpEarned);
+      
+      const leveledUp = await addXP(xpEarned);
       
       // Award points along with XP
-      await addPoints(challenge.xp * 10);
+      await addPoints(pointsEarned);
       
       // Save to database
       try {
@@ -169,9 +199,14 @@ const Dashboard = () => {
         console.error("Error saving challenge:", error);
       }
       
+      let toastDescription = `+${xpEarned} XP and +${pointsEarned} points earned!`;
+      if (xpMultiplier > 1) {
+        toastDescription += ` (${xpMultiplier}x XP Boost active!)`;
+      }
+
       toast({
         title: "Challenge Completed! 🎉",
-        description: `+${challenge.xp} XP and +${challenge.xp * 10} points earned!`,
+        description: toastDescription,
       });
       
       if (leveledUp) {

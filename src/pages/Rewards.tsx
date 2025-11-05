@@ -147,11 +147,20 @@ const Rewards = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const reward = rewards.find(r => r.id === id);
+
       await supabase.from("redeemed_rewards").insert({
         user_id: user.id,
         reward_id: id,
         reward_title: title,
         reward_cost: cost,
+      });
+
+      // Activate the reward so it has actual effects
+      await supabase.from("active_rewards").insert({
+        user_id: user.id,
+        reward_type: rewardType,
+        reward_data: reward?.reward_data,
       });
 
       await deductPoints(cost);
@@ -160,14 +169,17 @@ const Rewards = () => {
       // Show what they actually got
       let rewardDescription = "";
       switch (rewardType) {
-        case "theme":
-          rewardDescription = "Your custom theme has been unlocked! It will be applied automatically.";
+        case "custom_theme":
+          rewardDescription = "Custom Theme unlocked! Your app now has a personalized look.";
           break;
-        case "challenges":
-          rewardDescription = "5 exclusive challenges have been added to your dashboard!";
+        case "bonus_challenges":
+          rewardDescription = "Bonus challenges unlocked! Check your dashboard for new opportunities.";
           break;
-        case "ai_upgrade":
-          rewardDescription = "AI Companion upgraded! Now with enhanced features and longer conversations.";
+        case "exclusive_content":
+          rewardDescription = "Exclusive content unlocked! New features are now available.";
+          break;
+        case "xp_boost":
+          rewardDescription = "XP Boost activated! You now earn 2x XP on all challenges!";
           break;
         default:
           rewardDescription = `You've unlocked: ${title}`;

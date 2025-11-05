@@ -30,10 +30,53 @@ const Companion = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate("/auth");
+      } else {
+        loadMessages(user.id);
       }
     };
     checkAuth();
   }, [navigate]);
+
+  const loadMessages = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const loadedMessages = data.map((msg, index) => ({
+        id: index + 1,
+        text: msg.message,
+        sender: msg.sender as "user" | "ai",
+        timestamp: new Date(msg.created_at),
+      }));
+      setMessages(loadedMessages);
+      setConversationStarted(true);
+    }
+  };
+
+  const saveMessage = async (text: string, sender: "user" | "ai") => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('chat_messages')
+      .insert({
+        user_id: user.id,
+        message: text,
+        sender: sender,
+      });
+
+    if (error) {
+      console.error('Error saving message:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,7 +86,7 @@ const Companion = () => {
     scrollToBottom();
   }, [messages]);
 
-  const startConversation = () => {
+  const startConversation = async () => {
     setConversationStarted(true);
     const welcomeMessage: Message = {
       id: 1,
@@ -52,6 +95,7 @@ const Companion = () => {
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
+    await saveMessage(welcomeMessage.text, "ai");
   };
 
   const sendMessageToAI = async (userMessage: Message) => {
@@ -83,6 +127,7 @@ const Companion = () => {
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+      await saveMessage(aiResponse, "ai");
     } catch (error) {
       console.error("Error calling AI:", error);
       toast({
@@ -95,7 +140,7 @@ const Companion = () => {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
     const userMessage: Message = {
@@ -107,6 +152,7 @@ const Companion = () => {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    await saveMessage(inputValue, "user");
     sendMessageToAI(userMessage);
   };
 
