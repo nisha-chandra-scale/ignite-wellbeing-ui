@@ -151,19 +151,41 @@ const Rewards = () => {
 
       const reward = rewards.find(r => r.id === id);
 
-      await supabase.from("redeemed_rewards").insert({
-        user_id: user.id,
-        reward_id: id,
-        reward_title: title,
-        reward_cost: cost,
-      });
+      const { data: insertedRedeemed, error: insertRedeemedError } = await supabase
+        .from("redeemed_rewards")
+        .insert({
+          user_id: user.id,
+          reward_id: id,
+          reward_title: title,
+          reward_cost: cost,
+        })
+        .select();
+
+      if (insertRedeemedError) {
+        // If conflict (409), it means already redeemed - just update local state
+        if (insertRedeemedError.code === '23505') {
+          setRedeemedRewards([...redeemedRewards, id]);
+          return;
+        }
+        throw insertRedeemedError;
+      }
 
       // Activate the reward so it has actual effects
-      await supabase.from("active_rewards").insert({
-        user_id: user.id,
-        reward_type: rewardType,
-        reward_data: reward?.reward_data,
-      });
+      const { data: insertedActive, error: insertActiveError } = await supabase
+        .from("active_rewards")
+        .insert({
+          user_id: user.id,
+          reward_type: rewardType,
+          reward_data: reward?.reward_data,
+        })
+        .select();
+
+      if (insertActiveError) {
+        // If conflict, reward is already active - ignore error
+        if (insertActiveError.code !== '23505') {
+          throw insertActiveError;
+        }
+      }
 
       await deductPoints(cost);
       setRedeemedRewards([...redeemedRewards, id]);
@@ -210,29 +232,55 @@ const Rewards = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Delete from redeemed_rewards table
-      const { error: redeemedError } = await supabase
+      // First, check what exists in the database
+      const { data: existingRedeemed } = await supabase
         .from("redeemed_rewards")
-        .delete()
+        .select("*")
         .eq("user_id", user.id)
         .eq("reward_id", id);
 
-      if (redeemedError) throw redeemedError;
-
-      // Delete from active_rewards table
-      const { error: activeError } = await supabase
+      const { data: existingActive } = await supabase
         .from("active_rewards")
-        .delete()
+        .select("*")
         .eq("user_id", user.id)
         .eq("reward_type", rewardType);
 
-      if (activeError) throw activeError;
+      if (!existingRedeemed || existingRedeemed.length === 0) {
+        setRedeemedRewards(redeemedRewards.filter(rewardId => rewardId !== id));
+        await fetchRedeemedRewards(user.id);
+        toast({
+          title: "Already Un-redeemed",
+          description: "This reward was already removed.",
+        });
+        return;
+      }
+
+      // Delete from redeemed_rewards table using the ID from the existing record
+      const { error: redeemedError } = await supabase
+        .from("redeemed_rewards")
+        .delete()
+        .eq("id", existingRedeemed[0].id);
+
+      if (redeemedError) throw redeemedError;
+
+      // Delete from active_rewards table using IDs
+      if (existingActive && existingActive.length > 0) {
+        const { error: activeError } = await supabase
+          .from("active_rewards")
+          .delete()
+          .in("id", existingActive.map(a => a.id));
+
+        if (activeError) throw activeError;
+      }
 
       // Return points to user
       await addPoints(cost);
 
       // Update local state to remove from redeemedRewards
       setRedeemedRewards(redeemedRewards.filter(rewardId => rewardId !== id));
+
+      // Refetch redeemed rewards to ensure state is in sync
+      await fetchRedeemedRewards(user.id);
 
       toast({
         title: "Reward Un-redeemed! ↩️",
