@@ -117,19 +117,44 @@ export const useUserProgress = () => {
 
   const addXP = async (xp: number) => {
     if (!progress) return;
-    
+
     const newTotalXP = progress.total_xp + xp;
     const oldLevel = Math.floor(progress.total_xp / 1000);
     const newLevel = Math.floor(newTotalXP / 1000);
     const leveledUp = newLevel > oldLevel;
-    
-    const newStreak = progress.current_streak + 1;
-    
+
+    // Only increment streak if it's a new day
+    const today = new Date().toISOString().split('T')[0];
+    const lastActivity = progress.last_activity_date;
+    let newStreak = progress.current_streak;
+
+    if (lastActivity !== today) {
+      // Check if it's consecutive day
+      if (lastActivity) {
+        const lastDate = new Date(lastActivity);
+        const todayDate = new Date(today);
+        const diffTime = todayDate.getTime() - lastDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          // Consecutive day, increment streak
+          newStreak = progress.current_streak + 1;
+        } else if (diffDays > 1) {
+          // Missed days, reset to 1
+          newStreak = 1;
+        }
+      } else {
+        // First activity
+        newStreak = 1;
+      }
+    }
+    // If same day, keep current streak
+
     await updateProgress({
       total_xp: newTotalXP,
       current_streak: newStreak,
     });
-    
+
     return leveledUp;
   };
 

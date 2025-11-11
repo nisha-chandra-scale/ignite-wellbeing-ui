@@ -40,7 +40,7 @@ const Rewards = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
-  const { progress, loading, deductPoints } = useUserProgress();
+  const { progress, loading, deductPoints, addPoints } = useUserProgress();
   const [redeemedRewards, setRedeemedRewards] = useState<number[]>([]);
   const [badges, setBadges] = useState<BadgeType[]>([]);
   const [rewards, setRewards] = useState<RewardType[]>([]);
@@ -203,6 +203,50 @@ const Rewards = () => {
     }
   };
 
+  const handleUnredeem = async (id: number, title: string, cost: number, rewardType: string) => {
+    if (!progress) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Delete from redeemed_rewards table
+      const { error: redeemedError } = await supabase
+        .from("redeemed_rewards")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("reward_id", id);
+
+      if (redeemedError) throw redeemedError;
+
+      // Delete from active_rewards table
+      const { error: activeError } = await supabase
+        .from("active_rewards")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("reward_type", rewardType);
+
+      if (activeError) throw activeError;
+
+      // Return points to user
+      await addPoints(cost);
+
+      // Update local state to remove from redeemedRewards
+      setRedeemedRewards(redeemedRewards.filter(rewardId => rewardId !== id));
+
+      toast({
+        title: "Reward Un-redeemed! ↩️",
+        description: `${title} has been un-redeemed and ${cost} points have been returned.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading || !progress || loadingData) {
     return <div className="min-h-screen bg-background flex items-center justify-center">Loading...</div>;
   }
@@ -318,19 +362,34 @@ const Rewards = () => {
                         {reward.cost} points
                       </Badge>
                     </div>
-                    <Button
-                      onClick={() => handleRedeem(reward.id, reward.title, reward.cost, reward.reward_type)}
-                      disabled={reward.reward_type !== 'custom_theme' && isRedeemed}
-                      className={`${
-                        isRedeemed && reward.reward_type !== 'custom_theme'
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : canAfford
-                          ? "bg-primary hover:bg-primary/90"
-                          : "bg-muted text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {reward.reward_type === 'custom_theme' ? 'Toggle Theme' : isRedeemed ? "Redeemed" : "Redeem"}
-                    </Button>
+                    {reward.reward_type === 'custom_theme' ? (
+                      <Button
+                        onClick={() => handleRedeem(reward.id, reward.title, reward.cost, reward.reward_type)}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        Toggle Theme
+                      </Button>
+                    ) : isRedeemed ? (
+                      <Button
+                        onClick={() => handleUnredeem(reward.id, reward.title, reward.cost, reward.reward_type)}
+                        variant="outline"
+                        className="border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+                      >
+                        Un-redeem
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handleRedeem(reward.id, reward.title, reward.cost, reward.reward_type)}
+                        disabled={!canAfford}
+                        className={`${
+                          canAfford
+                            ? "bg-primary hover:bg-primary/90"
+                            : "bg-muted text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        Redeem
+                      </Button>
+                    )}
                   </div>
                 </Card>
               );

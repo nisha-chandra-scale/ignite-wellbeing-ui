@@ -173,12 +173,12 @@ const Dashboard = () => {
     
     if (challenge) {
       const xpEarned = challenge.xp * xpMultiplier;
-      const pointsEarned = xpEarned * 10;
-      
+      const pointsEarned = xpEarned; // 1:1 ratio with XP
+
       setTodayXp(prev => prev + xpEarned);
-      
+
       const leveledUp = await addXP(xpEarned);
-      
+
       // Award points along with XP
       await addPoints(pointsEarned);
       

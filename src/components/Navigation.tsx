@@ -1,14 +1,15 @@
-import { Home, Trophy, MessageCircle } from "lucide-react";
+import { Home, Trophy, MessageCircle, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const Navigation = () => {
   const location = useLocation();
-  
+
   const navItems = [
     { path: "/", icon: Home, label: "Home" },
     { path: "/rewards", icon: Trophy, label: "Rewards" },
     { path: "/companion", icon: MessageCircle, label: "Companion" },
+    { path: "/profile", icon: User, label: "Profile" },
   ];
 
   return (
